@@ -4,10 +4,7 @@ export default async function handler(req, res) {
     const { cv, job } = req.body;
     const API_KEY = process.env.GEMINI_API_KEY; 
 
-    // Test n°1 : Est-ce que Vercel trouve bien la clé ?
-    if (!API_KEY) {
-        return res.status(500).json({ error: "Vercel ne trouve pas la clé GEMINI_API_KEY." });
-    }
+    if (!API_KEY) return res.status(500).json({ error: "Configuration manquante côté serveur." });
 
     const prompt = `Agis comme un expert en recrutement. Rédige une lettre de motivation convaincante et professionnelle. Utilise le vouvoiement. 
     Voici le CV : ${cv}. 
@@ -22,15 +19,17 @@ export default async function handler(req, res) {
 
         const data = await response.json();
         
-        // Test n°2 : Est-ce que Google refuse la clé ?
         if (!response.ok) {
-            return res.status(500).json({ error: "Google refuse : " + (data.error?.message || "Erreur inconnue") });
+            // Si Google est surchargé, on donne un message poli à TON utilisateur
+            if (data.error?.message?.includes("high demand") || data.error?.code === 503) {
+                return res.status(503).json({ error: "L'Intelligence Artificielle est très sollicitée en ce moment. Attendez quelques secondes et réessayez !" });
+            }
+            return res.status(500).json({ error: "Le service IA est temporairement indisponible." });
         }
 
         const letter = data.candidates[0].content.parts[0].text;
         return res.status(200).json({ letter });
     } catch (error) {
-        // Test n°3 : Y a-t-il un crash de code ?
-        return res.status(500).json({ error: "Crash du code : " + error.message });
+        return res.status(500).json({ error: "Problème de connexion, veuillez réessayer." });
     }
 }
